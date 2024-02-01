@@ -15,7 +15,7 @@
   let clientsAwaitingResponse:any = {}
   let followUpInfo:any = {};
   let clientGlobal: Whatsapp;
-  const PORT = 3002;
+  const PORT = 3000;
   let clientMessages:saveNote[] = [] 
 /////////////funcao que verificar se esta em horario comercial//////
   function isBusinessHours() {
