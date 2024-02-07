@@ -103,20 +103,24 @@ export function convertToBrasiliaTimezone(timestamp: number): string {
   return cleaned + '@c.us';
 }*/
 ////////////////função para passar numero pro formato mobile////////////////
-export function formatPhoneNumberMobile(number: string): string {
-    // Removendo o prefixo '+55'
-    const nationalNumber = number.substring(3); 
-  
-    // Extraindo o código de área e o número local
-    const areaCode = nationalNumber.substring(0, 2);
-    const localNumber = nationalNumber.substring(2);
-  
-    // Formatando o número local no padrão 'XXXX-XXXX'
-    const formattedLocalNumber = localNumber.substring(0, 4) + '-' + localNumber.substring(4);
-  
-    // Juntando tudo no formato desejado '(XX) XXXX-XXXX'
-    return `(${areaCode}) ${formattedLocalNumber}`;
+export function formatarNumero(numero: string): string {
+  // Extrai os dígitos do número, removendo caracteres não numéricos
+  const digitos = numero.replace(/\D/g, '');
+
+  // Verifica se o número tem o comprimento esperado (12 dígitos)
+  if (digitos.length === 12) {
+    // Extrai o DDD, os quatro primeiros dígitos após o DDD, e os últimos quatro dígitos
+    const ddd = digitos.substring(2, 4);
+    const inicio = digitos.substring(4, 8);
+    const final = digitos.substring(8, 12);
+
+    // Monta o número no formato desejado
+    return `(${ddd}) ${inicio}-${final}`;
+  } else {
+    // Retorna uma mensagem de erro ou o próprio número caso não tenha o formato esperado
+    return "Formato de número inválido";
   }
+}
 
 
 ///////////////////////////////////////// função para atualizar o mobile do cliente caso vanha conversa pelo whatsapp
@@ -295,3 +299,21 @@ export function verificarEEnviarMensagem() {
 /*
 enviarMensagemDoVenomBot();
 setInterval(verificarEEnviarMensagem, 60 * 60 * 1000);*/
+
+export function ajustarNumeroSeNecessario(numero: string): string {
+  // Separa a base numérica do sufixo
+  let number = numero;
+  const [baseNumerica, sufixo] = numero.split('@');
+
+  // Determina o comprimento esperado para números sem o '9' extra
+  const comprimentoPadrao = 12; // Ajuste conforme necessário
+
+  // Verifica se o número atende aos critérios para remoção do '9'
+  if (baseNumerica.length === comprimentoPadrao + 1 && baseNumerica.startsWith('55') && baseNumerica[4] === '9') {
+      // Remove o '9' extra e reconstrói o número com o sufixo
+      number =  baseNumerica.substring(0, 4) + baseNumerica.substring(5) + '@' + sufixo;
+  }
+
+  // Retorna o número original se não atender aos critérios
+  return number;
+}

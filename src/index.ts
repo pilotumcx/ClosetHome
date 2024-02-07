@@ -4,9 +4,13 @@
   import fs from 'fs';
   import express, { Request, Response } from 'express';
   import bodyParser from 'body-parser';
-  import {sendVideoWithRetry, audio, convertToBrasiliaTimezone} from './utils/utils.js'
-  import { updateStatus, followUp, getDealId, getStageIdBasedOnAttempt, updateStage, saveNote, createNotePerson, getPerson, createPerson, criarNegócioPessoa } from "./utils/utilsagendor.js";
+  import {sendVideoWithRetry, audio, convertToBrasiliaTimezone, ajustarNumeroSeNecessario, formatarNumero} from './utils/utils.js'
+  import {updatePerson, updateStatus, followUp, getDealId, getStageIdBasedOnAttempt, updateStage, /*saveNote,*/ createNotePerson, getPerson, createPersonAndDeal/*, getdeal*/ } from "./utils/utilsagendor.js";
   ///////////////////////////////declaração de variaveis globais/////////////////////
+
+  function delay(ms:any) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
   const app = express();
   app.use(bodyParser.json());
   let messageBuffer: Record<string, string[]> = {};
@@ -16,7 +20,7 @@
   let followUpInfo:any = {};
   let clientGlobal: Whatsapp;
   const PORT = 3002;
-  let clientMessages:saveNote[] = [] 
+  //let clientMessages:saveNote[] = [] 
 /////////////funcao que verificar se esta em horario comercial//////
   function isBusinessHours() {
     const now = new Date();
@@ -55,20 +59,19 @@
         await updateStatus(followUpInfo[customer].dealId, "lost");
         // Encerra após 3 tentativas
         return;
-      }
-      
+      }   
       // Verifica se está em horário comercial
       if (isBusinessHours()) {
         // Define um timer para 24 horas (86400000 milissegundos)
         followUpInfo[customer].timer = setTimeout(async () => {
           const followUpDetails: followUp = getStageIdBasedOnAttempt(attempt);
           // Atualiza o estágio no Agendor
-          await updateStage(followUpInfo[customer].dealId, followUpDetails.id);
+          await updateStage(followUpInfo[customer].dealId, followUpDetails.id, followUpDetails.idfunnel);
           // Envie a mensagem de follow-up
           await clientGlobal.sendText(`${customer}@c.us`, followUpDetails.message);
           // Agenda o próximo follow-up
           scheduleFollowUp(customer, attempt + 1);
-        }, 86400000);
+        }, 120000);
       }
     } catch (error) {
       console.error(`Erro em scheduleFollowUp para o cliente ${customer}:`, error);
@@ -80,25 +83,28 @@
     /////////////////função gatilho quando cliente manda menssagem//////////////////// 
       client.onMessage(async (message: Message) => {
       if (message.isMedia === true || message.isMMS === true) return;  
-        let customer = `${message.from.replace('@c.us', '')}`;
+      ////formatações de numero para o agendor////////////////
+        let customer = ajustarNumeroSeNecessario(message.from).replace('@c.us', '');
         customer = customer.substring(2)
-        let idperson = await getPerson(customer)
         console.log(customer)
-        let idNegocio = await getDealId(customer)
-        console.log(idNegocio)
-        
+        let idperson = await getPerson(customer)
+//////////verifica se a pessoa existe, se não exisitir, cria pessoa e negócio////////////////
+        if(!idperson){
+          const numberVerified = ajustarNumeroSeNecessario(message.from)
+          const mobile = formatarNumero(numberVerified)
+          await createPersonAndDeal(message.sender.pushname, `+55${customer}`, mobile);
+          }
+  ////////////consdição para parar folow-up////////////////
         if (clientsAwaitingResponse[customer]) {
           clearTimeout(followUpInfo[customer].timer);
           delete clientsAwaitingResponse[customer];
           delete followUpInfo[customer];
+          console.log("folow-up cancelado")
       } 
-
-      if(!idperson){
-        const response:any = await createPerson(message.sender.pushname, `+55${customer}`, customer);
-        console.log(response.data.data.id)
-        await criarNegócioPessoa (response.data.data.id)
-        }
-
+///////////////atribui id do negócio ///////////////////
+        let idNegocio = await getDealId(customer)
+        console.log(idNegocio)
+///////////////verificar se é imagem ou video ////////////////////////
         const mimeType = message.mimetype || '';
         const isMedia = mimeType.startsWith('image/') || mimeType.startsWith('video/');
         let input:any;
@@ -127,7 +133,6 @@
             }
           }
         }
-          console.log(message.sender.pushname);
           if (!messageBuffer[message.from]) {
             messageBuffer[message.from] = [];
         }
@@ -144,7 +149,6 @@
           // Limpa o buffer e o timer
             messageBuffer[message.from] = [];
             delete messageTimer[message.from];
-           
             
               const apiResponse = await query({
                   "question": `${fullMessage}`,
@@ -152,23 +156,30 @@
                       "sessionId": customer,
                   }
               });
+
+              if (apiResponse.text.includes("Olá, Seja muito bem-vindo à Closet Home. Sou o assistente virtual do pré-atendimento. Estou aqui para auxiliá-lo neste primeiro contato. Em seguida, encaminharei você para um de nossos atendentes. Posso fazer algumas perguntas?")) {
+               await client.sendText(message.from, apiResponse.text);
+               await client.sendImage(message.from,'src/welcomeImage.jpg', 'WelcomeImage', '');
+                console.log(message.from)
+              }
               if (apiResponse.text.includes('todas as informações agora')) {
                 await client.sendText(message.from, apiResponse.text);
                 console.log(message.from)
-                await updateStage(idNegocio, 5);
+                await updateStage(idNegocio, 5, 69075);
             } else if (apiResponse.text.includes('1:30')) {
                 await client.sendText(message.from, apiResponse.text);
-                await sendVideoWithRetry(client, message.from, 'src/ConradoVideo.mp4', 'ConradoVideo.mp4', `Vou encaminhar suas informações para o setor de atendimento. Foi um prazer te ajudar até agora, e estou confiante de que podemos continuar alinhando nossos objetivos. Entre hoje e amanha, nossos atendentes entrarão em contato com você`);
+                await sendVideoWithRetry(client, message.from, 'src/ConradoVideo.mp4', 'ConradoVideo.mp4', `Vou encaminhar suas informações para o setor de atendimento. Foi um prazer te ajudar até agora, e estou confiante de que podemos continuar alinhando nossos objetivos. Entre hoje e amanha, nossos atendentes entrarão em contato com você, abraços.`);
                 
                 try {
-                    const Messages = await client.getAllMessagesInChat(message.from, true, false); 
-                    const promises = Messages.map(async (message) => {
-                        clientMessages.push({date:convertToBrasiliaTimezone(message.t), message:`${message.sender.name}:${message.body}\n`});
-                        // Se você tiver mais operações assíncronas a serem feitas com 'message', inclua-as aqui
-                    });
-                    await Promise.all(promises);
-                    console.log(clientMessages);
-                    await createNotePerson(customer, JSON.stringify(clientMessages));
+                  const Messages: any = await client.getAllMessagesInChat(message.chatId, true, false); 
+                   
+              const clientMessages: any[] = Messages.map((message: any) => {
+              return {date:`[${convertToBrasiliaTimezone(message.t)}]`, message:`${message.sender.pushname}: ${message.body}`};
+              // Removido async, pois não há operações assíncronas sendo feitas aqui
+          });
+                    let resultado: string = clientMessages.map(msg => JSON.stringify(msg)).join('\n');
+                    console.log(resultado)
+                    await createNotePerson(customer, resultado);
                     await updateStatus(idNegocio, "won");
                 } catch (error) {
                     console.error(`Erro ao processar mensagens:`, error);
@@ -181,8 +192,9 @@
     }
     /////////////////////////função que cria o cliente////////////////////////////
     create({
-      session: "ClosetHome",
+      session: "Mindbot",
       disableWelcome: true,
+      //browserPathExecutable: 'C:\Users\pc\Desktop\experimentos\botwhats\closetHomeOcean\ClosetHome\Chrome\Application\chrome.exe',
     })
       .then(async (client: Whatsapp) => await start(client))
       .catch((err) => {
@@ -190,26 +202,49 @@
       })
       /////////////////webhook que recebe cliente ao se cadastrar////////////////
       app.post('/closethome2', async (req: Request, res: Response) => {
+      
         try {
             console.log('Webhook recebido:', req.body);
-              const response = req.body
-              const number = `${response.telefone.replace('@c.us', '')}`
-                let customer = number.substring(2)
-                let idNegocio = await getDealId(customer)
-                console.log(idNegocio)          
+            const response = req.body
+            const numberlength = response.telefone.length
+            let customer = `${response.telefone.replace('@c.us', '').substring(2)}`
+
+             await delay (10000)
+
+
+            console.log(req.body)
+            const idPerson = await getPerson(customer)
+            console.log(customer)
+            console.log(idPerson)
+            console.log(response.telefone)
+            console.log(numberlength)
+              
+              console.group(customer)
+              const numberVerified = ajustarNumeroSeNecessario(response.telefone)
+              const mobile = formatarNumero(numberVerified)
+              const idNegocio = await getDealId(customer)
+              const numberVerified2 = numberVerified.replace('@c.us', '').substring(2) 
+              console.log(idNegocio) 
+              if(numberlength>17){  
+               const idPessoa = await getPerson(customer)
+                await updatePerson(idPessoa, mobile)    
+              }  
                 if (clientGlobal) {
                   const apiResponse = await query({
                     "question": `responda essa menssagem exatamente como está a seguir:${response.mensagem}`,
                     "overrideConfig": {
-                        "sessionId": customer,
+                        "sessionId": numberVerified2,
                       }
                     });
-                    await clientGlobal.sendText(response.telefone, apiResponse.text);
+                    await clientGlobal.sendText(numberVerified, apiResponse.text);
+                    await clientGlobal.sendImage(numberVerified,'src/welcomeImage.jpg', 'WelcomeImage', '');
                 }   
             res.status(200).send('Webhook recebido com sucesso!');
-            clientsAwaitingResponse[customer] = true;
-            followUpInfo[customer] = { dealId: idNegocio, timer: null };
-            scheduleFollowUp(customer);
+            clientsAwaitingResponse[numberVerified2] = true;
+            console.log(clientsAwaitingResponse)
+            console.log(numberVerified2)
+            followUpInfo[numberVerified2] = { dealId: idNegocio, timer: null };
+            scheduleFollowUp(numberVerified2);
         } catch (error) {
             console.error('Erro ao processar o webhook:', error);
             res.status(500).send('Erro interno do servidor');

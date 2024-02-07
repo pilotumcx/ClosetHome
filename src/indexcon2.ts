@@ -5,7 +5,7 @@
   import express, { Request, Response } from 'express';
   import bodyParser from 'body-parser';
   import {sendVideoWithRetry, audio, convertToBrasiliaTimezone} from './utils/utils.js'
-  import { updateStatus, followUp, getDealId, getStageIdBasedOnAttempt, updateStage, saveNote, createNotePerson, getPerson, createPerson, criarNegócioPessoa } from "./utils/utilsagendor.js";
+  import { updateStatus, followUp, getDealId, getStageIdBasedOnAttempt, updateStage, saveNote, createNotePerson, getPerson, createPersonAndDeal, criarNegócioPessoa } from "./utils/utilsagendor.js";
   ///////////////////////////////declaração de variaveis globais/////////////////////
   const app = express();
   app.use(bodyParser.json());
@@ -54,7 +54,7 @@
     followUpInfo[customer].timer = setTimeout(async () => {
       const followUpDetails:followUp = getStageIdBasedOnAttempt(attempt);
       // Atualiza o estágio no Agendor
-      await updateStage(followUpInfo[customer].dealId, followUpDetails.id);
+      await updateStage(followUpInfo[customer].dealId, followUpDetails.id, followUpDetails.idfunnel);
       // Envie a mensagem de follow-up
       await clientGlobal.sendText(`${customer}@c.us`, followUpDetails.message);
       // Agenda o próximo follow-up
@@ -84,7 +84,7 @@
       } 
 
       if(!idperson){
-        const response:any = await createPerson(message.sender.pushname, `+55${customer}`, customer);
+        const response:any = await createPersonAndDeal(message.sender.pushname, `+55${customer}`, customer);
         console.log(response.data.data.id)
         await criarNegócioPessoa (response.data.data.id)
         }
@@ -145,7 +145,7 @@
               if (apiResponse.text.includes('todas as informações agora')) {
                 await client.sendText(message.from, apiResponse.text);
                 console.log(message.from)
-                await updateStage(idNegocio, 5);
+                await updateStage(idNegocio, 5, 69075);
             } else if (apiResponse.text.includes('1:30')) {
                 await client.sendText(message.from, apiResponse.text);
                 await sendVideoWithRetry(client, message.from, 'src/ConradoVideo.mp4', 'ConradoVideo.mp4', `Vou encaminhar suas informações para o setor de atendimento. Foi um prazer te ajudar até agora, e estou confiante de que podemos continuar alinhando nossos objetivos. Entre hoje e amanha, nossos atendentes entrarão em contato com você`);
