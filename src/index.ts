@@ -71,7 +71,7 @@
           await clientGlobal.sendText(`${customer}@c.us`, followUpDetails.message);
           // Agenda o próximo follow-up
           scheduleFollowUp(customer, attempt + 1);
-        }, 120000);
+        }, 86400000);
       }
     } catch (error) {
       console.error(`Erro em scheduleFollowUp para o cliente ${customer}:`, error);
@@ -165,7 +165,7 @@
               if (apiResponse.text.includes('todas as informações agora')) {
                 await client.sendText(message.from, apiResponse.text);
                 console.log(message.from)
-                await updateStage(idNegocio, 5, 69075);
+                await updateStage(idNegocio, 5, 690725);
             } else if (apiResponse.text.includes('1:30')) {
                 await client.sendText(message.from, apiResponse.text);
                 await sendVideoWithRetry(client, message.from, 'src/ConradoVideo.mp4', 'ConradoVideo.mp4', `Vou encaminhar suas informações para o setor de atendimento. Foi um prazer te ajudar até agora, e estou confiante de que podemos continuar alinhando nossos objetivos. Entre hoje e amanha, nossos atendentes entrarão em contato com você, abraços.`);
@@ -192,7 +192,7 @@
     }
     /////////////////////////função que cria o cliente////////////////////////////
     create({
-      session: "Mindbot",
+      session: "ClosetHome",
       disableWelcome: true,
       //browserPathExecutable: 'C:\Users\pc\Desktop\experimentos\botwhats\closetHomeOcean\ClosetHome\Chrome\Application\chrome.exe',
     })
