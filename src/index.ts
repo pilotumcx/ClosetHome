@@ -5,7 +5,7 @@
   import express, { Request, Response } from 'express';
   import bodyParser from 'body-parser';
   import {sendVideoWithRetry, audio, convertToBrasiliaTimezone, ajustarNumeroSeNecessario, formatarNumero} from './utils/utils.js'
-  import {updatePerson, updateStatus, followUp, getDealId, getStageIdBasedOnAttempt, updateStage, /*saveNote,*/ createNotePerson, getPerson, createPersonAndDeal/*, getdeal*/ } from "./utils/utilsagendor.js";
+  import {updatePerson, updateStatus, followUp, getDealId, getStageIdBasedOnAttempt, updateStage, /*saveNote,*/ createNotePerson, getPerson, createPersonAndDeal/*, getdeal*/, updateNewDeal } from "./utils/utilsagendor.js";
   ///////////////////////////////declaração de variaveis globais/////////////////////
 
   function delay(ms:any) {
@@ -90,9 +90,11 @@
         let idperson = await getPerson(customer)
 //////////verifica se a pessoa existe, se não exisitir, cria pessoa e negócio////////////////
         if(!idperson){
+          const nome = message.sender.pushname
+          console.log(nome)
           const numberVerified = ajustarNumeroSeNecessario(message.from)
           const mobile = formatarNumero(numberVerified)
-          await createPersonAndDeal(message.sender.pushname, `+55${customer}`, mobile);
+          await createPersonAndDeal(nome, `+55${customer}`, mobile);
           }
   ////////////consdição para parar folow-up////////////////
         if (clientsAwaitingResponse[customer]) {
@@ -161,7 +163,7 @@
                await client.sendText(message.from, apiResponse.text);
                await client.sendImage(message.from,'src/welcomeImage.jpg', 'WelcomeImage', '');
                 console.log(message.from)
-              }
+              }else 
               if (apiResponse.text.includes('todas as informações agora')) {
                 await client.sendText(message.from, apiResponse.text);
                 console.log(message.from)
@@ -169,18 +171,18 @@
             } else if (apiResponse.text.includes('1:30')) {
                 await client.sendText(message.from, apiResponse.text);
                 await sendVideoWithRetry(client, message.from, 'src/ConradoVideo.mp4', 'ConradoVideo.mp4', `Vou encaminhar suas informações para o setor de atendimento. Foi um prazer te ajudar até agora, e estou confiante de que podemos continuar alinhando nossos objetivos. Entre hoje e amanha, nossos atendentes entrarão em contato com você, abraços.`);
-                
                 try {
                   const Messages: any = await client.getAllMessagesInChat(message.chatId, true, false); 
                    
               const clientMessages: any[] = Messages.map((message: any) => {
-              return {date:`[${convertToBrasiliaTimezone(message.t)}]`, message:`${message.sender.pushname}: ${message.body}`};
+              return {date:`[${convertToBrasiliaTimezone(message.t)}]`, message:`${message.notifyName}: ${message.body}`};
               // Removido async, pois não há operações assíncronas sendo feitas aqui
           });
                     let resultado: string = clientMessages.map(msg => JSON.stringify(msg)).join('\n');
                     console.log(resultado)
                     await createNotePerson(customer, resultado);
                     await updateStatus(idNegocio, "won");
+                    await updateNewDeal(idperson)                 
                 } catch (error) {
                     console.error(`Erro ao processar mensagens:`, error);
                 }
@@ -209,8 +211,7 @@
             const numberlength = response.telefone.length
             let customer = `${response.telefone.replace('@c.us', '').substring(2)}`
 
-             await delay (10000)
-
+             await delay (20000)
 
             console.log(req.body)
             const idPerson = await getPerson(customer)
@@ -219,7 +220,7 @@
             console.log(response.telefone)
             console.log(numberlength)
               
-              console.group(customer)
+              console.log(customer)
               const numberVerified = ajustarNumeroSeNecessario(response.telefone)
               const mobile = formatarNumero(numberVerified)
               const idNegocio = await getDealId(customer)

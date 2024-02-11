@@ -177,7 +177,7 @@ export async function updatePerson (id:number, number:string){
   }
 
     ////////////////////////////////////função para criar pessoa caso não esteja cadastrada////////////////////////////
-    export async function createPersonAndDeal(name: string, whatsapp:string, mobile: string) {
+    export async function createPersonAndDeal(name:string, whatsapp:string, mobile:string) {
       const url = 'https://api.agendor.com.br/v3/people';
       const requestBody = {
           name: `${name}`,
@@ -334,3 +334,67 @@ cron.schedule('* * * * *', async () => {
   }
 });
 */
+
+async function updateDealOwner(idDeal:number){
+  console.log(`Atualizando usuario do negócio ${idDeal}`);
+    let data = JSON.stringify({
+      "ownerUser": 784879,
+    });
+  let config = {
+    method: 'put',
+    maxBodyLength: Infinity,
+    url: `https://api.agendor.com.br/v3/deals/${idDeal}`,
+    headers: { 
+      'Authorization': `${token}`, 
+      'Content-Type': 'application/json'
+    },
+    data : data
+  };
+  
+  axios.request(config)
+  .then((response) => {
+    console.log(JSON.stringify(response.data.data));
+    console.log(`Atualizando usuario do negócio ${idDeal}`);
+  })
+  .catch((error) => {
+    console.log(error);
+  });
+  }
+
+
+
+
+
+export async function updateNewDeal(idPerson: number) {
+  let config = {
+    method: 'get',
+    maxBodyLength: Infinity,
+    url: `https://api.agendor.com.br/v3/people/${idPerson}/deals`,
+    headers: {
+      'Authorization': `${token}`,
+      'Content-Type': 'application/json',
+    },
+  };
+
+  try {
+    let response = await axios.request(config);
+    let dealId: any;
+
+    for (const deal of response.data.data) {
+      console.log(deal.dealStage.id);
+      if (deal.dealStage.id === 2808506) {
+        dealId = deal.id;
+        break; // Adiciona um break aqui para sair do loop assim que encontrar o dealId desejado
+      }
+    }
+
+    if (dealId) {
+      await updateDealOwner(dealId);
+    } else {
+      console.log("Nenhum deal encontrado com o dealStage.id 2808506");
+    }
+
+  } catch (error) {
+    console.log(error);
+  }
+}
